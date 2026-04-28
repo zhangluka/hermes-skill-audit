@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-hermes-skill-audit v0.2
-Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage.
+hermes-skill-audit v0.3
+Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage, auto-cleanup.
 """
 
 import os
 import re
 import sys
 import json
+import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -16,6 +17,7 @@ from difflib import SequenceMatcher
 # --- Config ---
 HERMES_SKILLS_DIR = Path.home() / ".hermes" / "skills"
 USAGE_FILE = Path.home() / ".hermes" / "skill-usage.json"
+ARCHIVE_DIR = Path.home() / ".hermes" / "skills-archive"
 TOKENS_PER_CHAR = 0.25  # ~4 chars per token (rough estimate)
 SIMILARITY_THRESHOLD = 0.6  # >60% = potential duplicate
 STALE_DAYS = 30  # Days without use to be considered stale
@@ -167,6 +169,7 @@ def scan_skills(skills_dir: Path) -> list:
             'related_skills': meta.get('related_skills', []),
             'category': category,
             'path': str(skill_md),
+            'dir_path': str(skill_md.parent),
             'content_length': len(content),
             'estimated_tokens': estimate_tokens(content),
         })
@@ -205,6 +208,8 @@ def find_duplicates(skills: list) -> list:
                     'name_sim': round(name_sim, 2),
                     'tokens_a': a['estimated_tokens'],
                     'tokens_b': b['estimated_tokens'],
+                    'path_a': a['dir_path'],
+                    'path_b': b['dir_path'],
                 })
     
     return sorted(duplicates, key=lambda x: x['score'], reverse=True)
@@ -242,6 +247,67 @@ def find_stale(skills: list, usage_data: dict) -> list:
             continue
     
     return sorted(stale, key=lambda x: x.get('days_since_used', 999), reverse=True)
+
+
+def archive_skill(skill_path: str, skill_name: str) -> bool:
+    """Move a skill to archive directory."""
+    try:
+        ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+        dest = ARCHIVE_DIR / skill_name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.move(skill_path, str(dest))
+        return True
+    except Exception as e:
+        print(f"  Error archiving {skill_name}: {e}")
+        return False
+
+
+def fix_duplicates(duplicates: list, dry_run: bool = True) -> dict:
+    """Fix duplicate skills by archiving the smaller one."""
+    results = {'archived': [], 'errors': []}
+    
+    for d in duplicates:
+        # Keep the one with more tokens (presumably more complete)
+        if d['tokens_a'] >= d['tokens_b']:
+            keep, archive = d['skill_a'], d['skill_b']
+            keep_path, archive_path = d['path_a'], d['path_b']
+        else:
+            keep, archive = d['skill_b'], d['skill_a']
+            keep_path, archive_path = d['path_b'], d['path_a']
+        
+        if dry_run:
+            print(f"  [DRY RUN] Would archive: {archive} (keep: {keep})")
+            results['archived'].append({'name': archive, 'dry_run': True})
+        else:
+            if archive_skill(archive_path, archive):
+                print(f"  ✅ Archived: {archive}")
+                results['archived'].append({'name': archive, 'dry_run': False})
+            else:
+                results['errors'].append(archive)
+    
+    return results
+
+
+def fix_stale(stale: list, dry_run: bool = True) -> dict:
+    """Fix stale skills by archiving them."""
+    results = {'archived': [], 'errors': []}
+    
+    for s in stale:
+        name = s['name']
+        path = s['dir_path']
+        
+        if dry_run:
+            print(f"  [DRY RUN] Would archive: {name} — {s.get('stale_reason', '')}")
+            results['archived'].append({'name': name, 'dry_run': True})
+        else:
+            if archive_skill(path, name):
+                print(f"  ✅ Archived: {name}")
+                results['archived'].append({'name': name, 'dry_run': False})
+            else:
+                results['errors'].append(name)
+    
+    return results
 
 
 def generate_report(skills: list, duplicates: list, stale: list, usage_data: dict) -> str:
@@ -341,6 +407,8 @@ def main():
     parser = argparse.ArgumentParser(description='Audit Hermes Agent skills')
     parser.add_argument('--record', metavar='SKILL_NAME', help='Record usage of a skill')
     parser.add_argument('--export', metavar='FILE', help='Export report to file')
+    parser.add_argument('--fix', action='store_true', help='Auto-fix issues (archive duplicates and stale skills)')
+    parser.add_argument('--dry-run', action='store_true', help='Show what --fix would do without actually doing it')
     args = parser.parse_args()
     
     # Record usage if requested
@@ -365,6 +433,23 @@ def main():
     
     report = generate_report(skills, duplicates, stale, usage_data)
     print(report)
+    
+    # Fix mode
+    if args.fix or args.dry_run:
+        dry_run = args.dry_run or not args.fix
+        print("\n" + "=" * 50)
+        print("  FIX MODE" + (" (DRY RUN)" if dry_run else ""))
+        print("=" * 50)
+        
+        if duplicates:
+            print(f"\nArchiving {len(duplicates)} duplicate skills...")
+            dup_results = fix_duplicates(duplicates, dry_run=dry_run)
+        
+        if stale:
+            print(f"\nArchiving {len(stale)} stale skills...")
+            stale_results = fix_stale(stale, dry_run=dry_run)
+        
+        print("\nDone!")
     
     if args.export:
         Path(args.export).write_text(report)

@@ -99,6 +99,6 @@ python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
 
 - [x] v0.1 — Basic audit: list skills, estimate tokens, detect obvious duplicates
 - [x] v0.2 — Usage tracking integration
-- [ ] v0.3 — `--fix` flag for auto-cleanup
+- [x] v0.3 — `--fix` flag for auto-cleanup
 - [ ] v0.4 — Pre-creation validation hook
 - [ ] v0.5 — Integration with `hermes skills audit`
