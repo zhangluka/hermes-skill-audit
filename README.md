@@ -1,5 +1,7 @@
 # hermes-skill-audit
 
+English | [中文](README_CN.md)
+
 Audit & optimize [Hermes Agent](https://github.com/NousResearch/hermes-agent) skills — detect duplicates, estimate token waste, lifecycle management.
 
 ## Background
