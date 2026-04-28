@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-hermes-skill-audit v0.4
-Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage, auto-cleanup, pre-creation validation.
+hermes-skill-audit v0.5
+Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage, auto-cleanup, pre-creation validation, hermes integration.
 """
 
 import os
@@ -444,15 +444,45 @@ def generate_report(skills: list, duplicates: list, stale: list, usage_data: dic
     return '\n'.join(lines)
 
 
+def generate_json_report(skills: list, duplicates: list, stale: list, usage_data: dict) -> dict:
+    """Generate JSON audit report for programmatic use."""
+    total_tokens = sum(s['estimated_tokens'] for s in skills)
+    
+    return {
+        'timestamp': datetime.now().isoformat(),
+        'summary': {
+            'total_skills': len(skills),
+            'total_categories': len(set(s['category'] for s in skills)),
+            'estimated_tokens_per_turn': total_tokens,
+            'tracked_skills': len(usage_data),
+        },
+        'skills': [{
+            'name': s['name'],
+            'category': s['category'],
+            'estimated_tokens': s['estimated_tokens'],
+            'usage_count': usage_data.get(s['name'], {}).get('count', 0),
+            'last_used': usage_data.get(s['name'], {}).get('last_used'),
+        } for s in skills],
+        'duplicates': duplicates,
+        'stale': [{
+            'name': s['name'],
+            'reason': s.get('stale_reason', ''),
+            'days_since_used': s.get('days_since_used'),
+        } for s in stale],
+    }
+
+
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Audit Hermes Agent skills')
     parser.add_argument('--record', metavar='SKILL_NAME', help='Record usage of a skill')
     parser.add_argument('--export', metavar='FILE', help='Export report to file')
+    parser.add_argument('--json', action='store_true', help='Output in JSON format')
     parser.add_argument('--fix', action='store_true', help='Auto-fix issues (archive duplicates and stale skills)')
     parser.add_argument('--dry-run', action='store_true', help='Show what --fix would do without actually doing it')
     parser.add_argument('--validate', nargs=3, metavar=('NAME', 'DESCRIPTION', 'TAGS'), help='Validate a new skill before creation')
+    parser.add_argument('--summary', action='store_true', help='Show summary only (no category details)')
     args = parser.parse_args()
     
     # Record usage if requested
@@ -468,26 +498,29 @@ def main():
         tags = [t.strip() for t in args.validate[2].split(',')]
         result = validate_new_skill(name, description, tags)
         
-        print("=" * 50)
-        print("  SKILL VALIDATION RESULT")
-        print("=" * 50)
-        print(f"\nName: {result['name']}")
-        print(f"Valid: {'✅ Yes' if result['valid'] else '❌ No'}")
-        
-        if result['issues']:
-            print(f"\n🚫 Issues ({len(result['issues'])}):")
-            for issue in result['issues']:
-                print(f"  - {issue}")
-        
-        if result['warnings']:
-            print(f"\n⚠️ Warnings ({len(result['warnings'])}):")
-            for warning in result['warnings']:
-                print(f"  - {warning}")
-        
-        print(f"\nToken Impact:")
-        print(f"  Current total: ~{result['current_total']:,}")
-        print(f"  Estimated new: ~{result['estimated_tokens']:,}")
-        print(f"  New total: ~{result['new_total']:,}")
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print("=" * 50)
+            print("  SKILL VALIDATION RESULT")
+            print("=" * 50)
+            print(f"\nName: {result['name']}")
+            print(f"Valid: {'✅ Yes' if result['valid'] else '❌ No'}")
+            
+            if result['issues']:
+                print(f"\n🚫 Issues ({len(result['issues'])}):")
+                for issue in result['issues']:
+                    print(f"  - {issue}")
+            
+            if result['warnings']:
+                print(f"\n⚠️ Warnings ({len(result['warnings'])}):")
+                for warning in result['warnings']:
+                    print(f"  - {warning}")
+            
+            print(f"\nToken Impact:")
+            print(f"  Current total: ~{result['current_total']:,}")
+            print(f"  Estimated new: ~{result['estimated_tokens']:,}")
+            print(f"  New total: ~{result['new_total']:,}")
         
         sys.exit(0 if result['valid'] else 1)
     
@@ -497,13 +530,28 @@ def main():
         print(f"Error: Skills directory not found: {skills_dir}")
         sys.exit(1)
     
-    print(f"Scanning {skills_dir}...")
+    if not args.summary:
+        print(f"Scanning {skills_dir}...")
     skills = scan_skills(skills_dir)
-    print(f"Found {len(skills)} skills\n")
+    if not args.summary:
+        print(f"Found {len(skills)} skills\n")
     
     usage_data = load_usage_data()
     duplicates = find_duplicates(skills)
     stale = find_stale(skills, usage_data)
+    
+    # JSON output
+    if args.json:
+        json_report = generate_json_report(skills, duplicates, stale, usage_data)
+        print(json.dumps(json_report, indent=2))
+        return
+    
+    # Summary mode
+    if args.summary:
+        total_tokens = sum(s['estimated_tokens'] for s in skills)
+        print(f"Skills: {len(skills)} | Categories: {len(set(s['category'] for s in skills))} | Tokens/turn: ~{total_tokens:,}")
+        print(f"Duplicates: {len(duplicates)} | Stale: {len(stale)} | Tracked: {len(usage_data)}")
+        return
     
     report = generate_report(skills, duplicates, stale, usage_data)
     print(report)
@@ -526,7 +574,11 @@ def main():
         print("\nDone!")
     
     if args.export:
-        Path(args.export).write_text(report)
+        if args.json:
+            json_report = generate_json_report(skills, duplicates, stale, usage_data)
+            Path(args.export).write_text(json.dumps(json_report, indent=2))
+        else:
+            Path(args.export).write_text(report)
         print(f"\nReport exported to: {args.export}")
 
 

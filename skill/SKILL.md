@@ -2,8 +2,8 @@
 name: hermes-skill-audit
 description: >
   Audit & optimize Hermes Agent skills — detect duplicates, estimate token waste,
-  and get actionable recommendations to reduce context window bloat.
-version: 0.1.0
+  track usage, auto-cleanup, and pre-creation validation.
+version: 0.5.0
 author: zhangluka
 license: MIT
 metadata:
@@ -30,36 +30,69 @@ Audit your installed Hermes skills to reduce token waste and keep your skill lib
 python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
 ```
 
-## What It Does
+## Features
 
-1. **Scans** all SKILL.md files in `~/.hermes/skills/`
-2. **Estimates** token consumption per skill (~4 chars/token)
-3. **Detects** duplicates via description + tag + name similarity
-4. **Flags** low-quality skills (short/empty descriptions)
-5. **Reports** actionable recommendations with potential savings
+### v0.1 — Basic Audit
+- Scan all SKILL.md files
+- Estimate token consumption
+- Detect duplicates via description + tag + name similarity
 
-## Output
+### v0.2 — Usage Tracking
+- Record when skills are used with `--record`
+- Store usage data in `~/.hermes/skill-usage.json`
+- Detect stale skills based on actual usage
 
+### v0.3 — Auto-Cleanup
+- `--fix` flag to automatically archive duplicate/stale skills
+- `--dry-run` mode to preview before acting
+- Archived skills moved to `~/.hermes/skills-archive/`
+
+### v0.4 — Pre-Creation Validation
+- `--validate` flag to check new skill before creation
+- Detect name conflicts and description overlaps
+- Estimate token impact
+
+### v0.5 — Advanced Reporting
+- `--json` output for programmatic use
+- `--summary` for quick overview
+- Export reports with `--export`
+
+## Usage
+
+```bash
+# Full audit report
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
+
+# Quick summary
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --summary
+
+# JSON output (for scripts/tools)
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json
+
+# Record skill usage
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --record <skill-name>
+
+# Validate new skill before creation
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --validate "name" "description" "tag1,tag2"
+
+# Preview cleanup (dry run)
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --dry-run
+
+# Execute cleanup
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --fix
+
+# Export report
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json --export report.json
 ```
-==================================================
-  HERMES SKILL AUDIT REPORT
-==================================================
 
-Total skills: 110
-Estimated tokens per turn: ~297,562
+## Configuration
 
---------------------------------------------------
-  POTENTIAL DUPLICATES
---------------------------------------------------
-  🔴 automated-market-research ↔ product-market-research
-     Score: 0.65 | Desc: 0.45 | Tags: 0.92 | Name: 0.75
+Edit `scripts/audit.py` to adjust:
 
---------------------------------------------------
-  RECOMMENDATIONS
---------------------------------------------------
-  1. Review duplicate skills for merging
-  💡 Potential savings: ~15,776 tokens/turn
-```
+- `SIMILARITY_THRESHOLD` (default: 0.6) — duplicate detection sensitivity
+- `TOKENS_PER_CHAR` (default: 0.25) — token estimation ratio
+- `STALE_DAYS` (default: 30) — days without use to be considered stale
 
 ## Installation
 
@@ -71,34 +104,18 @@ git clone https://github.com/zhangluka/hermes-skill-audit ~/.hermes/skills/herme
 python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
 ```
 
-## Configuration
-
-Edit `scripts/audit.py` to adjust:
-
-- `SIMILARITY_THRESHOLD` (default: 0.6) — duplicate detection sensitivity
-- `TOKENS_PER_CHAR` (default: 0.25) — token estimation ratio
-- `STALE_DAYS` (default: 30) — days without use to be considered stale
-
-## Usage Tracking
-
-Record when a skill is used:
-
-```bash
-python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --record <skill-name>
-```
-
-Usage data is stored in `~/.hermes/skill-usage.json`.
-
-## Export Report
-
-```bash
-python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
-```
-
 ## Roadmap
 
 - [x] v0.1 — Basic audit: list skills, estimate tokens, detect obvious duplicates
 - [x] v0.2 — Usage tracking integration
 - [x] v0.3 — `--fix` flag for auto-cleanup
 - [x] v0.4 — Pre-creation validation hook
-- [ ] v0.5 — Integration with `hermes skills audit`
+- [x] v0.5 — Integration with `hermes skills audit`
+
+## Contributing
+
+This is a community tool. PRs welcome.
+
+## License
+
+MIT
