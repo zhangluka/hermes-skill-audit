@@ -2,107 +2,164 @@
 
 English | [中文](README_CN.md)
 
-Audit & optimize [Hermes Agent](https://github.com/NousResearch/hermes-agent) skills — detect duplicates, estimate token waste, lifecycle management.
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/zhangluka/hermes-skill-audit/blob/main/LICENSE)
+[![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-6C3483.svg)](https://github.com/NousResearch/hermes-agent)
 
-## Background
+> **Stop burning tokens on skills you never use.**
 
-Hermes Agent loads **all installed skills** into the system prompt on every conversation. This is by design — it enables the agent to know what procedures are available and load them on demand.
+Audit & optimize [Hermes Agent](https://github.com/NousResearch/hermes-agent) skills — detect duplicates, estimate token waste, track usage, and auto-cleanup.
 
-But as skills accumulate, this creates a hidden cost:
-
-- **Every message** pays for the full skill list in tokens
-- **Duplicate/overlapping skills** waste context window space
-- **Stale skills** (no longer relevant) add noise without value
-- **No built-in tooling** to detect these problems
-
-### A Real-World Horror Story
-
-> I burned through **60 million credits in 10 hours**. My token plan was exhausted before I even realized what happened. After investigation, I found Hermes's uncontrolled skill management was a major contributor — 110+ skills loaded into every single message, most of them never actually used, many duplicated. That's when I decided to build this tool.
->
-> — [@zhangluka](https://github.com/zhangluka), creator of hermes-skill-audit
-
-This isn't a theoretical problem. **It's burning real money, right now, for every Hermes user with 50+ skills.**
+---
 
 ## The Problem
 
-From the Hermes Agent community:
+Hermes Agent loads **every installed skill** into the system prompt on every conversation. As skills accumulate, so does the cost:
+
+| Metric | Impact |
+|--------|--------|
+| 110+ skills | ~300,000 tokens wasted per turn |
+| No usage tracking | Can't tell which skills are actually used |
+| No duplicate detection | Same knowledge stored multiple times |
+| No cleanup mechanism | Skills grow unbounded forever |
+
+### Real-World Impact
+
+> I burned through **60 million credits in 10 hours**. My token plan was exhausted before I even realized what happened. After investigation, I found Hermes's uncontrolled skill management was a major contributor — 110+ skills loaded into every single message, most of them never actually used, many duplicated.
+>
+> — [@zhangluka](https://github.com/zhangluka)
+
+### Community Reports
 
 | Issue | Author | Situation |
 |-------|--------|-----------|
-| [#13534](https://github.com/NousResearch/hermes-agent/issues/13534) | @fengcwf | 146+ skills → ~4,400 tokens/turn → ~80M tokens/year wasted |
-| [#11425](https://github.com/NousResearch/hermes-agent/issues/11425) | @LehaoLin | 89+ skills → no way to track usage or detect staleness |
+| [#13534](https://github.com/NousResearch/hermes-agent/issues/13534) | @fengcwf | 146+ skills → ~4,400 tokens/turn → ~80M tokens/year |
+| [#11425](https://github.com/NousResearch/hermes-agent/issues/11425) | @LehaoLin | 89+ skills → no usage tracking, no cleanup |
 
-Both issues describe the same core problem: **skills grow unbounded, and there's no feedback loop to manage them.**
-
-## Current State
-
-Hermes Agent provides basic skill management:
-
-| Command | What it does |
-|---------|--------------|
-| `hermes skills list` | List installed skills |
-| `hermes skills check` | Check for updates |
-| `hermes skills update` | Update outdated skills |
-| `hermes skills uninstall` | Remove a skill |
-| `hermes skills audit` | Security scan only |
-
-**What's missing:**
-- ❌ Duplicate / overlap detection
-- ❌ Token usage estimation per skill
-- ❌ Usage frequency tracking (which skills are actually loaded?)
-- ❌ Stale skill detection
-- ❌ Merge / consolidation suggestions
-- ❌ Pre-creation validation (is this skill redundant?)
+---
 
 ## Solution
 
-**hermes-skill-audit** is a CLI tool that:
+**hermes-skill-audit** is a CLI tool that brings visibility and control to your skill library.
 
-1. **Scans** all installed skills in `~/.hermes/skills/`
-2. **Analyzes** each skill's description, tags, and content for overlaps
-3. **Estimates** token consumption per skill and total
-4. **Detects** duplicates, near-duplicates, and stale skills
-5. **Recommends** actions: keep, merge, delete, or archive
-6. **Generates** a human-readable audit report
+### Features
 
-### Output Example
+| Feature | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 |
+|---------|------|------|------|------|------|
+| Scan all skills | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Token estimation | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Duplicate detection | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Usage tracking | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Auto-cleanup (`--fix`) | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Pre-creation validation | ❌ | ❌ | ❌ | ✅ | ✅ |
+| JSON output | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Quick Start
+
+```bash
+# Clone
+git clone https://github.com/zhangluka/hermes-skill-audit ~/.hermes/skills/hermes-skill-audit
+
+# Run audit
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
+```
+
+### Sample Output
 
 ```
-=== Hermes Skill Audit Report ===
+==================================================
+  HERMES SKILL AUDIT REPORT
+==================================================
 
-Total skills: 47
-Estimated tokens per turn: ~3,200
+Total skills: 112
+Estimated tokens per turn: ~299,443
+Tracked skills: 0
 
-🔴 DUPLICATES (3 groups):
-  - "github-pr-workflow" ↔ "github-code-review" (87% overlap)
-  - "nextjs-deploy" ↔ "cloudflare-pages-deploy" (62% overlap)
-  - ...
+--------------------------------------------------
+  POTENTIAL DUPLICATES
+--------------------------------------------------
+  🔴 automated-market-research ↔ product-market-research
+     Score: 0.65 | Tags: 0.92 | Name: 0.75
+     Tokens: 2,440 + 2,498 = 4,938
 
-🟡 STALE (>30 days unused):
-  - "minecraft-modpack-server" (last used: 45 days ago)
-  - ...
-
-🟢 HEALTHY (41 skills):
-  - No action needed
-
-💡 RECOMMENDATIONS:
-  1. Merge "github-pr-workflow" + "github-code-review" → save ~800 tokens/turn
-  2. Archive 3 stale skills → save ~600 tokens/turn
-  3. Estimated savings: ~1,400 tokens/turn (~44M tokens/year)
+--------------------------------------------------
+  RECOMMENDATIONS
+--------------------------------------------------
+  1. Review duplicate skills for merging
+  💡 Potential savings: ~2,440 tokens/turn
 ```
+
+---
+
+## Usage
+
+```bash
+# Full audit report
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
+
+# Quick summary
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --summary
+
+# JSON output (for scripts/tools)
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json
+
+# Record skill usage
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --record <skill-name>
+
+# Validate new skill before creation
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --validate "name" "description" "tag1,tag2"
+
+# Preview cleanup (dry run)
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --dry-run
+
+# Execute cleanup
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --fix
+
+# Export report
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json --export report.json
+```
+
+---
+
+## Configuration
+
+Edit `scripts/audit.py` to adjust:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SIMILARITY_THRESHOLD` | 0.6 | Duplicate detection sensitivity (0.0-1.0) |
+| `TOKENS_PER_CHAR` | 0.25 | Token estimation ratio (~4 chars/token) |
+| `STALE_DAYS` | 30 | Days without use to be considered stale |
+
+---
 
 ## Roadmap
 
-- [ ] v0.1 — Basic audit: list skills, estimate tokens, detect obvious duplicates
-- [ ] v0.2 — Overlap detection via description/tag similarity
-- [ ] v0.3 — Integration with `hermes skills audit` command
-- [ ] v0.4 — Usage tracking (requires Hermes core changes)
-- [ ] v0.5 — Pre-creation validation hook
+- [x] v0.1 — Basic audit: list skills, estimate tokens, detect duplicates
+- [x] v0.2 — Usage tracking integration (`--record`)
+- [x] v0.3 — Auto-cleanup with `--fix` and `--dry-run`
+- [x] v0.4 — Pre-creation validation (`--validate`)
+- [x] v0.5 — JSON output, summary mode, advanced reporting
+
+---
 
 ## Contributing
 
 This is a community tool. PRs welcome.
 
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/zhangluka">@zhangluka</a></sub>
+</div>

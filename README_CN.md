@@ -2,68 +2,67 @@
 
 [English](README.md) | 中文
 
-审计 & 优化 [Hermes Agent](https://github.com/NousResearch/hermes-agent) skills — 检测重复、估算 token 浪费、生命周期管理。
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/zhangluka/hermes-skill-audit/blob/main/LICENSE)
+[![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-6C3483.svg)](https://github.com/NousResearch/hermes-agent)
 
-## 背景
+> **停止为你从不使用的 skills 浪费 token。**
 
-Hermes Agent 会在每次对话时将**所有已安装的 skills** 加载到 system prompt 中。这是设计如此 — 让 agent 知道有哪些可用流程，按需加载。
+审计 & 优化 [Hermes Agent](https://github.com/NousResearch/hermes-agent) skills — 检测重复、估算 token 浪费、追踪使用情况、自动清理。
 
-但随着 skills 不断累积，隐藏成本也随之而来：
-
-- **每条消息**都要为完整的 skill 列表支付 token 费用
-- **重复/重叠的 skills** 浪费上下文窗口空间
-- **过时的 skills**（不再相关）增加噪音但没有价值
-- **没有内置工具**来检测这些问题
-
-### 真实案例
-
-> 我在 10 小时内烧掉了 **6000 万 Credits**。我的 token 额度在还没反应过来的时候就耗尽了。经过排查，发现 Hermes 失控的 skill 管理是主要原因 — 110+ 个 skills 被加载到每条消息中，大部分从未实际使用，还有很多是重复的。于是我决定构建这个工具。
->
-> — [@zhangluka](https://github.com/zhangluka)，hermes-skill-audit 作者
-
-这不是理论问题。**它正在为每一个拥有 50+ skills 的 Hermes 用户烧掉真金白银。**
+---
 
 ## 问题现状
 
-来自 Hermes Agent 社区的反馈：
+Hermes Agent 会在每次对话时将**所有已安装的 skills** 加载到 system prompt 中。随着 skills 不累累积，成本也在增长：
+
+| 指标 | 影响 |
+|------|------|
+| 110+ skills | 每轮浪费 ~300,000 tokens |
+| 无使用追踪 | 无法知道哪些 skills 实际被使用 |
+| 无重复检测 | 相同知识存储多次 |
+| 无清理机制 | Skills 无限增长 |
+
+### 真实案例
+
+> 我在 10 小时内烧掉了 **6000 万 Credits**。我的 token 额度在还没反应过来的时候就耗尽了。经过排查，发现 Hermes 失控的 skill 管理是主要原因 — 110+ 个 skills 被加载到每条消息中，大部分从未实际使用，还有很多是重复的。
+>
+> — [@zhangluka](https://github.com/zhangluka)
+
+### 社区反馈
 
 | Issue | 作者 | 情况 |
 |-------|------|------|
-| [#13534](https://github.com/NousResearch/hermes-agent/issues/13534) | @fengcwf | 146+ skills → ~4,400 tokens/轮 → ~8000万 tokens/年浪费 |
-| [#11425](https://github.com/NousResearch/hermes-agent/issues/11425) | @LehaoLin | 89+ skills → 无法追踪使用情况或检测过期 |
+| [#13534](https://github.com/NousResearch/hermes-agent/issues/13534) | @fengcwf | 146+ skills → ~4,400 tokens/轮 → ~8000万 tokens/年 |
+| [#11425](https://github.com/NousResearch/hermes-agent/issues/11425) | @LehaoLin | 89+ skills → 无法追踪使用情况 |
 
-两个 issue 描述了同一个核心问题：**skills 无限增长，没有反馈循环来管理它们。**
-
-## 现有工具
-
-Hermes Agent 提供基础的 skill 管理命令：
-
-| 命令 | 功能 |
-|------|------|
-| `hermes skills list` | 列出已安装 skills |
-| `hermes skills check` | 检查更新 |
-| `hermes skills update` | 更新过时的 skills |
-| `hermes skills uninstall` | 删除 skill |
-| `hermes skills audit` | 仅安全扫描 |
-
-**缺失功能：**
-- ❌ 重复/重叠检测
-- ❌ Token 使用量估算
-- ❌ 使用频率追踪（哪些 skills 实际被加载了？）
-- ❌ 过期 skill 检测
-- ❌ 合并/整合建议
-- ❌ 创建前验证（这个 skill 是否冗余？）
+---
 
 ## 解决方案
 
-**hermes-skill-audit** 是一个 CLI 工具：
+**hermes-skill-audit** 是一个 CLI 工具，为你的 skill 库带来可见性和控制力。
 
-1. **扫描** `~/.hermes/skills/` 中的所有已安装 skills
-2. **分析**每个 skill 的描述、标签和内容重叠度
-3. **估算**每个 skill 的 token 消耗和总量
-4. **检测**重复、近似重复和过时 skills
-5. **推荐**操作：保留、合并、删除或归档
-6. **生成**人类可读的审计报告
+### 功能特性
+
+| 功能 | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 |
+|------|------|------|------|------|------|
+| 扫描所有 skills | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Token 估算 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 重复检测 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 使用追踪 | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 自动清理 (`--fix`) | ❌ | ❌ | ✅ | ✅ | ✅ |
+| 创建前验证 | ❌ | ❌ | ❌ | ✅ | ✅ |
+| JSON 输出 | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### 快速开始
+
+```bash
+# 克隆
+git clone https://github.com/zhangluka/hermes-skill-audit ~/.hermes/skills/hermes-skill-audit
+
+# 运行审计
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
+```
 
 ### 输出示例
 
@@ -73,62 +72,94 @@ Hermes Agent 提供基础的 skill 管理命令：
 ==================================================
 
 Total skills: 112
-Estimated tokens per turn: ~299,320
+Estimated tokens per turn: ~299,443
+Tracked skills: 0
 
 --------------------------------------------------
   POTENTIAL DUPLICATES
 --------------------------------------------------
   🔴 automated-market-research ↔ product-market-research
-     Score: 0.65 | Desc: 0.45 | Tags: 0.92 | Name: 0.75
+     Score: 0.65 | Tags: 0.92 | Name: 0.75
      Tokens: 2,440 + 2,498 = 4,938
 
 --------------------------------------------------
   RECOMMENDATIONS
 --------------------------------------------------
-  1. Review duplicate skills for merging:
-     - Merge automated-market-research + product-market-research → save ~2,440 tokens/turn
+  1. Review duplicate skills for merging
   💡 Potential savings: ~2,440 tokens/turn
 ```
 
-## 安装
-
-```bash
-# 克隆到 skills 目录
-git clone https://github.com/zhangluka/hermes-skill-audit ~/.hermes/skills/hermes-skill-audit
-
-# 运行
-python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
-```
+---
 
 ## 使用方法
 
 ```bash
-# 直接运行
+# 完整审计报告
 python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py
 
-# 或者在 Hermes 会话中加载 skill
-/hermes-skill-audit
+# 快速摘要
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --summary
+
+# JSON 输出（适合脚本/工具集成）
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json
+
+# 记录 skill 使用
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --record <skill-name>
+
+# 创建新 skill 前验证
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --validate "name" "description" "tag1,tag2"
+
+# 预览清理（dry run）
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --dry-run
+
+# 执行清理
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --fix
+
+# 导出报告
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --json --export report.json
 ```
+
+---
 
 ## 配置
 
 编辑 `scripts/audit.py` 调整参数：
 
-- `SIMILARITY_THRESHOLD`（默认：0.6）— 重复检测灵敏度
-- `TOKENS_PER_CHAR`（默认：0.25）— token 估算比率
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `SIMILARITY_THRESHOLD` | 0.6 | 重复检测灵敏度 (0.0-1.0) |
+| `TOKENS_PER_CHAR` | 0.25 | Token 估算比率 (~4 字符/token) |
+| `STALE_DAYS` | 30 | 多少天未使用视为过期 |
+
+---
 
 ## 路线图
 
-- [x] v0.1 — 基础审计：列出 skills、估算 token、检测明显重复
-- [ ] v0.2 — 使用频率追踪集成
-- [ ] v0.3 — `--fix` 参数自动清理
-- [ ] v0.4 — 创建前验证钩子
-- [ ] v0.5 — 集成到 `hermes skills audit` 命令
+- [x] v0.1 — 基础审计：列出 skills、估算 token、检测重复
+- [x] v0.2 — 使用追踪集成（`--record`）
+- [x] v0.3 — 自动清理（`--fix` 和 `--dry-run`）
+- [x] v0.4 — 创建前验证（`--validate`）
+- [x] v0.5 — JSON 输出、摘要模式、高级报告
+
+---
 
 ## 贡献
 
 这是一个社区工具，欢迎 PR。
 
+1. Fork 仓库
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
+
 ## 许可证
 
-MIT
+MIT — 详见 [LICENSE](LICENSE)。
+
+---
+
+<div align="center">
+  <sub>由 <a href="https://github.com/zhangluka">@zhangluka</a> 用心构建 ❤️</sub>
+</div>
