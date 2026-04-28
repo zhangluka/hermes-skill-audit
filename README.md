@@ -15,6 +15,14 @@ But as skills accumulate, this creates a hidden cost:
 - **Stale skills** (no longer relevant) add noise without value
 - **No built-in tooling** to detect these problems
 
+### A Real-World Horror Story
+
+> I burned through **60 million credits in 10 hours**. My token plan was exhausted before I even realized what happened. After investigation, I found Hermes's uncontrolled skill management was a major contributor — 110+ skills loaded into every single message, most of them never actually used, many duplicated. That's when I decided to build this tool.
+>
+> — [@zhangluka](https://github.com/zhangluka), creator of hermes-skill-audit
+
+This isn't a theoretical problem. **It's burning real money, right now, for every Hermes user with 50+ skills.**
+
 ## The Problem
 
 From the Hermes Agent community:

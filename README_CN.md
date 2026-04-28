@@ -15,6 +15,14 @@ Hermes Agent 会在每次对话时将**所有已安装的 skills** 加载到 sys
 - **过时的 skills**（不再相关）增加噪音但没有价值
 - **没有内置工具**来检测这些问题
 
+### 真实案例
+
+> 我在 10 小时内烧掉了 **6000 万 Credits**。我的 token 额度在还没反应过来的时候就耗尽了。经过排查，发现 Hermes 失控的 skill 管理是主要原因 — 110+ 个 skills 被加载到每条消息中，大部分从未实际使用，还有很多是重复的。于是我决定构建这个工具。
+>
+> — [@zhangluka](https://github.com/zhangluka)，hermes-skill-audit 作者
+
+这不是理论问题。**它正在为每一个拥有 50+ skills 的 Hermes 用户烧掉真金白银。**
+
 ## 问题现状
 
 来自 Hermes Agent 社区的反馈：
