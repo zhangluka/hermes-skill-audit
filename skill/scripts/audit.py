@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-hermes-skill-audit v0.3
-Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage, auto-cleanup.
+hermes-skill-audit v0.4
+Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage, auto-cleanup, pre-creation validation.
 """
 
 import os
@@ -310,6 +310,49 @@ def fix_stale(stale: list, dry_run: bool = True) -> dict:
     return results
 
 
+def validate_new_skill(name: str, description: str, tags: list) -> dict:
+    """Validate a new skill before creation. Returns validation result."""
+    skills = scan_skills(HERMES_SKILLS_DIR)
+    issues = []
+    warnings = []
+    
+    # Check for name conflicts
+    existing_names = [s['name'] for s in skills]
+    if name in existing_names:
+        issues.append(f"Skill '{name}' already exists")
+    
+    # Check for similar names
+    for existing in existing_names:
+        sim = similarity(name, existing)
+        if sim > 0.8:
+            warnings.append(f"Similar skill exists: '{existing}' (similarity: {sim:.0%})")
+    
+    # Check for description overlap
+    for skill in skills:
+        desc_sim = similarity(description, skill['description'])
+        tag_sim = tag_overlap(tags, skill['tags'])
+        if desc_sim > 0.7 and tag_sim > 0.5:
+            issues.append(f"High overlap with existing skill: '{skill['name']}' (desc: {desc_sim:.0%}, tags: {tag_sim:.0%})")
+        elif desc_sim > 0.6:
+            warnings.append(f"Moderate overlap with: '{skill['name']}' (desc: {desc_sim:.0%})")
+    
+    # Estimate token impact
+    estimated_tokens = estimate_tokens(description) * 10  # Rough estimate for full skill
+    total_current = sum(s['estimated_tokens'] for s in skills)
+    
+    result = {
+        'valid': len(issues) == 0,
+        'name': name,
+        'issues': issues,
+        'warnings': warnings,
+        'estimated_tokens': estimated_tokens,
+        'current_total': total_current,
+        'new_total': total_current + estimated_tokens,
+    }
+    
+    return result
+
+
 def generate_report(skills: list, duplicates: list, stale: list, usage_data: dict) -> str:
     """Generate human-readable audit report."""
     total_tokens = sum(s['estimated_tokens'] for s in skills)
@@ -409,6 +452,7 @@ def main():
     parser.add_argument('--export', metavar='FILE', help='Export report to file')
     parser.add_argument('--fix', action='store_true', help='Auto-fix issues (archive duplicates and stale skills)')
     parser.add_argument('--dry-run', action='store_true', help='Show what --fix would do without actually doing it')
+    parser.add_argument('--validate', nargs=3, metavar=('NAME', 'DESCRIPTION', 'TAGS'), help='Validate a new skill before creation')
     args = parser.parse_args()
     
     # Record usage if requested
@@ -416,6 +460,36 @@ def main():
         record_usage(args.record)
         print(f"Recorded usage: {args.record}")
         return
+    
+    # Validate new skill
+    if args.validate:
+        name = args.validate[0]
+        description = args.validate[1]
+        tags = [t.strip() for t in args.validate[2].split(',')]
+        result = validate_new_skill(name, description, tags)
+        
+        print("=" * 50)
+        print("  SKILL VALIDATION RESULT")
+        print("=" * 50)
+        print(f"\nName: {result['name']}")
+        print(f"Valid: {'✅ Yes' if result['valid'] else '❌ No'}")
+        
+        if result['issues']:
+            print(f"\n🚫 Issues ({len(result['issues'])}):")
+            for issue in result['issues']:
+                print(f"  - {issue}")
+        
+        if result['warnings']:
+            print(f"\n⚠️ Warnings ({len(result['warnings'])}):")
+            for warning in result['warnings']:
+                print(f"  - {warning}")
+        
+        print(f"\nToken Impact:")
+        print(f"  Current total: ~{result['current_total']:,}")
+        print(f"  Estimated new: ~{result['estimated_tokens']:,}")
+        print(f"  New total: ~{result['new_total']:,}")
+        
+        sys.exit(0 if result['valid'] else 1)
     
     skills_dir = HERMES_SKILLS_DIR
     
