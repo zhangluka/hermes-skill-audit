@@ -77,10 +77,28 @@ Edit `scripts/audit.py` to adjust:
 
 - `SIMILARITY_THRESHOLD` (default: 0.6) — duplicate detection sensitivity
 - `TOKENS_PER_CHAR` (default: 0.25) — token estimation ratio
+- `STALE_DAYS` (default: 30) — days without use to be considered stale
+
+## Usage Tracking
+
+Record when a skill is used:
+
+```bash
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --record <skill-name>
+```
+
+Usage data is stored in `~/.hermes/skill-usage.json`.
+
+## Export Report
+
+```bash
+python3 ~/.hermes/skills/hermes-skill-audit/scripts/audit.py --export report.txt
+```
 
 ## Roadmap
 
-- [ ] v0.2 — Usage tracking integration
+- [x] v0.1 — Basic audit: list skills, estimate tokens, detect obvious duplicates
+- [x] v0.2 — Usage tracking integration
 - [ ] v0.3 — `--fix` flag for auto-cleanup
 - [ ] v0.4 — Pre-creation validation hook
 - [ ] v0.5 — Integration with `hermes skills audit`

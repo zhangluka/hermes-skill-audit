@@ -1,20 +1,50 @@
 #!/usr/bin/env python3
 """
-hermes-skill-audit v0.1
-Audit Hermes Agent skills — detect duplicates, estimate token waste.
+hermes-skill-audit v0.2
+Audit Hermes Agent skills — detect duplicates, estimate token waste, track usage.
 """
 
 import os
 import re
 import sys
+import json
 from pathlib import Path
+from datetime import datetime, timedelta
 from collections import defaultdict
 from difflib import SequenceMatcher
 
 # --- Config ---
 HERMES_SKILLS_DIR = Path.home() / ".hermes" / "skills"
+USAGE_FILE = Path.home() / ".hermes" / "skill-usage.json"
 TOKENS_PER_CHAR = 0.25  # ~4 chars per token (rough estimate)
 SIMILARITY_THRESHOLD = 0.6  # >60% = potential duplicate
+STALE_DAYS = 30  # Days without use to be considered stale
+
+
+def load_usage_data() -> dict:
+    """Load skill usage tracking data."""
+    if USAGE_FILE.exists():
+        try:
+            return json.loads(USAGE_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def save_usage_data(data: dict):
+    """Save skill usage tracking data."""
+    USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    USAGE_FILE.write_text(json.dumps(data, indent=2))
+
+
+def record_usage(skill_name: str):
+    """Record that a skill was loaded/used."""
+    data = load_usage_data()
+    if skill_name not in data:
+        data[skill_name] = {'count': 0, 'last_used': None, 'first_seen': datetime.now().isoformat()}
+    data[skill_name]['count'] += 1
+    data[skill_name]['last_used'] = datetime.now().isoformat()
+    save_usage_data(data)
 
 
 def parse_frontmatter(content: str) -> dict:
@@ -180,17 +210,41 @@ def find_duplicates(skills: list) -> list:
     return sorted(duplicates, key=lambda x: x['score'], reverse=True)
 
 
-def find_stale(skills: list, days_threshold: int = 30) -> list:
-    """Find skills that might be stale (placeholder — needs usage tracking)."""
-    # v0.1: Flag skills with very generic/empty descriptions
+def find_stale(skills: list, usage_data: dict) -> list:
+    """Find skills that are stale based on usage data."""
     stale = []
+    now = datetime.now()
+    
     for skill in skills:
-        if not skill['description'] or len(skill['description']) < 20:
-            stale.append(skill)
-    return stale
+        name = skill['name']
+        usage = usage_data.get(name, {})
+        last_used_str = usage.get('last_used')
+        
+        # No usage data at all = never tracked
+        if not last_used_str:
+            # Check if description is very short (low quality)
+            if not skill['description'] or len(skill['description']) < 20:
+                skill['stale_reason'] = 'No usage data + low-quality description'
+                stale.append(skill)
+            continue
+        
+        # Parse last used date
+        try:
+            last_used = datetime.fromisoformat(last_used_str)
+            days_since = (now - last_used).days
+            
+            if days_since > STALE_DAYS:
+                skill['stale_reason'] = f'Not used for {days_since} days'
+                skill['days_since_used'] = days_since
+                skill['usage_count'] = usage.get('count', 0)
+                stale.append(skill)
+        except Exception:
+            continue
+    
+    return sorted(stale, key=lambda x: x.get('days_since_used', 999), reverse=True)
 
 
-def generate_report(skills: list, duplicates: list, stale: list) -> str:
+def generate_report(skills: list, duplicates: list, stale: list, usage_data: dict) -> str:
     """Generate human-readable audit report."""
     total_tokens = sum(s['estimated_tokens'] for s in skills)
     
@@ -202,7 +256,7 @@ def generate_report(skills: list, duplicates: list, stale: list) -> str:
     lines.append(f"Total skills: {len(skills)}")
     lines.append(f"Total categories: {len(set(s['category'] for s in skills))}")
     lines.append(f"Estimated tokens per turn: ~{total_tokens:,}")
-    lines.append(f"Estimated yearly cost (1000 turns/day): ~{total_tokens * 1000 * 365:,} tokens")
+    lines.append(f"Tracked skills: {len(usage_data)}")
     lines.append("")
     
     # Skills by category
@@ -218,7 +272,12 @@ def generate_report(skills: list, duplicates: list, stale: list) -> str:
         cat_tokens = sum(s['estimated_tokens'] for s in cat_skills)
         lines.append(f"  {cat} ({len(cat_skills)} skills, ~{cat_tokens:,} tokens)")
         for s in cat_skills:
-            lines.append(f"    - {s['name']} (~{s['estimated_tokens']:,} tokens)")
+            usage = usage_data.get(s['name'], {})
+            count = usage.get('count', 0)
+            last = usage.get('last_used', 'never')
+            if last != 'never':
+                last = last[:10]  # Just date part
+            lines.append(f"    - {s['name']} (~{s['estimated_tokens']:,} tok, used {count}x, last: {last})")
     lines.append("")
     
     # Duplicates
@@ -237,13 +296,14 @@ def generate_report(skills: list, duplicates: list, stale: list) -> str:
     
     # Stale
     lines.append("-" * 50)
-    lines.append("  LOW-QUALITY / STALE")
+    lines.append("  STALE / LOW-VALUE")
     lines.append("-" * 50)
     if stale:
         for s in stale:
-            lines.append(f"  🟡 {s['name']} — description: '{s['description'][:50]}...'")
+            reason = s.get('stale_reason', 'Unknown')
+            lines.append(f"  🟡 {s['name']} — {reason}")
     else:
-        lines.append("  ✅ All skills have adequate descriptions")
+        lines.append("  ✅ No stale skills detected")
     lines.append("")
     
     # Recommendations
@@ -260,7 +320,7 @@ def generate_report(skills: list, duplicates: list, stale: list) -> str:
             lines.append(f"     - Merge {d['skill_a']} + {d['skill_b']} → save ~{smaller:,} tokens/turn")
     
     if stale:
-        lines.append(f"  2. Review {len(stale)} low-quality skills for cleanup")
+        lines.append(f"  2. Review {len(stale)} stale skills for cleanup")
         stale_tokens = sum(s['estimated_tokens'] for s in stale)
         potential_savings += stale_tokens
     
@@ -276,6 +336,19 @@ def generate_report(skills: list, duplicates: list, stale: list) -> str:
 
 
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Audit Hermes Agent skills')
+    parser.add_argument('--record', metavar='SKILL_NAME', help='Record usage of a skill')
+    parser.add_argument('--export', metavar='FILE', help='Export report to file')
+    args = parser.parse_args()
+    
+    # Record usage if requested
+    if args.record:
+        record_usage(args.record)
+        print(f"Recorded usage: {args.record}")
+        return
+    
     skills_dir = HERMES_SKILLS_DIR
     
     if not skills_dir.exists():
@@ -286,11 +359,16 @@ def main():
     skills = scan_skills(skills_dir)
     print(f"Found {len(skills)} skills\n")
     
+    usage_data = load_usage_data()
     duplicates = find_duplicates(skills)
-    stale = find_stale(skills)
+    stale = find_stale(skills, usage_data)
     
-    report = generate_report(skills, duplicates, stale)
+    report = generate_report(skills, duplicates, stale, usage_data)
     print(report)
+    
+    if args.export:
+        Path(args.export).write_text(report)
+        print(f"\nReport exported to: {args.export}")
 
 
 if __name__ == '__main__':
