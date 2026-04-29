@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/zhangluka/hermes-skill-audit/blob/main/LICENSE)
 [![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-6C3483.svg)](https://github.com/NousResearch/hermes-agent)
 
