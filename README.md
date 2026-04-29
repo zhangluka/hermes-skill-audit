@@ -2,7 +2,7 @@
 
 English | [中文](README_CN.md)
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/zhangluka/hermes-skill-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/zhangluka/hermes-skill-audit/blob/main/LICENSE)
 [![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-6C3483.svg)](https://github.com/NousResearch/hermes-agent)
 
@@ -44,15 +44,16 @@ Hermes Agent loads **every installed skill** into the system prompt on every con
 
 ### Features
 
-| Feature | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 |
-|---------|------|------|------|------|------|
-| Scan all skills | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Token estimation | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Duplicate detection | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Usage tracking | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Auto-cleanup (`--fix`) | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Pre-creation validation | ❌ | ❌ | ❌ | ✅ | ✅ |
-| JSON output | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Feature | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 | v0.6 |
+|---------|------|------|------|------|------|------|
+| Scan all skills | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Token estimation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Duplicate detection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Usage tracking | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Auto-cleanup (`--fix`) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Pre-creation validation | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| JSON output | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Natural language triggers | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ### Quick Start
 
@@ -141,6 +142,7 @@ Edit `scripts/audit.py` to adjust:
 - [x] v0.3 — Auto-cleanup with `--fix` and `--dry-run`
 - [x] v0.4 — Pre-creation validation (`--validate`)
 - [x] v0.5 — JSON output, summary mode, advanced reporting
+- [x] v0.6 — Natural language triggers for Agent integration
 
 ---
 
